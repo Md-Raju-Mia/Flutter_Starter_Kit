@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../data/models/note_model.dart';
 import '../../data/providers/repository_providers.dart';
+import 'auth_provider.dart';
 
 final notesProvider = StateNotifierProvider<NotesNotifier, AsyncValue<List<NoteModel>>>((ref) {
   return NotesNotifier(ref);
@@ -15,7 +16,6 @@ class NotesNotifier extends StateNotifier<AsyncValue<List<NoteModel>>> {
   }
 
   Future<void> loadNotes() async {
-    state = const AsyncValue.loading();
     state = await AsyncValue.guard(() => _ref.read(noteRepositoryProvider).getNotes());
   }
 
@@ -36,8 +36,15 @@ class NotesNotifier extends StateNotifier<AsyncValue<List<NoteModel>>> {
   }
 
   Future<void> syncNotes() async {
+    final user = _ref.read(authStateProvider).value;
+    if (user == null) return;
+
     state = const AsyncValue.loading();
-    await _ref.read(noteRepositoryProvider).syncWithFirestore();
-    await loadNotes();
+    try {
+      await _ref.read(noteRepositoryProvider).syncWithFirestore(user.uid);
+      await loadNotes();
+    } catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
+    }
   }
 }

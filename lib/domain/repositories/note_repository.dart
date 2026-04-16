@@ -5,5 +5,5 @@ abstract class NoteRepository {
   Future<void> addNote(NoteModel note);
   Future<void> updateNote(NoteModel note);
   Future<void> deleteNote(String id);
-  Future<void> syncWithFirestore();
+  Future<void> syncWithFirestore(String userId);
 }

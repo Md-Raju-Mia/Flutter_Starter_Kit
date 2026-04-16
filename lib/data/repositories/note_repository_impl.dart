@@ -36,13 +36,18 @@ class NoteRepositoryImpl implements NoteRepository {
   }
 
   @override
-  Future<void> syncWithFirestore() async {
+  Future<void> syncWithFirestore(String userId) async {
     final box = await _box;
     final notes = box.values.toList();
     
     final batch = _firestore.batch();
     for (var note in notes) {
-      final docRef = _firestore.collection('notes').doc(note.id);
+      // Correct path based on the rules we set: users/{userId}/notes/{noteId}
+      final docRef = _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('notes')
+          .doc(note.id);
       batch.set(docRef, note.toJson());
     }
     await batch.commit();

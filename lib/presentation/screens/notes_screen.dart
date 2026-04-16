@@ -15,27 +15,55 @@ class NotesScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.sync),
-            onPressed: () => ref.read(notesProvider.notifier).syncNotes(),
+            onPressed: () async {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Syncing with Firestore...')),
+              );
+              await ref.read(notesProvider.notifier).syncNotes();
+              if (context.mounted) {
+                notesAsync.whenData((_) {
+                   ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Sync successful!'), backgroundColor: Colors.green),
+                  );
+                });
+              }
+            },
           ),
         ],
       ),
       body: notesAsync.when(
-        data: (notes) => ListView.builder(
+        data: (notes) => notes.isEmpty 
+          ? const Center(child: Text('No notes yet. Tap + to add one.'))
+          : ListView.builder(
           itemCount: notes.length,
           itemBuilder: (context, index) {
             final note = notes[index];
-            return ListTile(
-              title: Text(note.title),
-              subtitle: Text(note.content),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () => ref.read(notesProvider.notifier).deleteNote(note.id),
+            return Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: ListTile(
+                title: Text(note.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text(note.content),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () => ref.read(notesProvider.notifier).deleteNote(note.id),
+                ),
               ),
             );
           },
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
+        error: (err, stack) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Error: $err', style: const TextStyle(color: Colors.red)),
+              ElevatedButton(
+                onPressed: () => ref.read(notesProvider.notifier).loadNotes(),
+                child: const Text('Retry'),
+              )
+            ],
+          ),
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddNoteDialog(context, ref),
@@ -51,25 +79,35 @@ class NotesScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Note'),
+        title: const Text('New Note'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: titleController, decoration: const InputDecoration(hintText: 'Title')),
-            TextField(controller: contentController, decoration: const InputDecoration(hintText: 'Content')),
+            TextField(
+              controller: titleController, 
+              decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: contentController, 
+              maxLines: 3,
+              decoration: const InputDecoration(labelText: 'Content', border: OutlineInputBorder()),
+            ),
           ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
-              ref.read(notesProvider.notifier).addNote(
-                titleController.text,
-                contentController.text,
-              );
-              Navigator.pop(context);
+              if (titleController.text.isNotEmpty) {
+                ref.read(notesProvider.notifier).addNote(
+                  titleController.text,
+                  contentController.text,
+                );
+                Navigator.pop(context);
+              }
             },
-            child: const Text('Add'),
+            child: const Text('Save Note'),
           ),
         ],
       ),
