@@ -135,7 +135,7 @@ class NotesScreen extends ConsumerWidget {
                               ),
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(20),
-                                onTap: () {}, // For future edit functionality
+                                onTap: () => _showEditNoteDialog(context, ref, note),
                                 child: Padding(
                                   padding: const EdgeInsets.all(20),
                                   child: Column(
@@ -150,7 +150,20 @@ class NotesScreen extends ConsumerWidget {
                                               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                                             ),
                                           ),
-                                          Icon(Icons.push_pin_outlined, size: 18, color: theme.colorScheme.outline),
+                                          PopupMenuButton<String>(
+                                            icon: Icon(Icons.more_vert, size: 18, color: theme.colorScheme.outline),
+                                            onSelected: (value) {
+                                              if (value == 'edit') {
+                                                _showEditNoteDialog(context, ref, note);
+                                              } else if (value == 'delete') {
+                                                ref.read(notesProvider.notifier).deleteNote(note.id);
+                                              }
+                                            },
+                                            itemBuilder: (context) => [
+                                              const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                                              const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                                            ],
+                                          ),
                                         ],
                                       ),
                                       const SizedBox(height: 8),
@@ -212,8 +225,27 @@ class NotesScreen extends ConsumerWidget {
   void _showAddNoteDialog(BuildContext context, WidgetRef ref) {
     final titleController = TextEditingController();
     final contentController = TextEditingController();
-    final theme = Theme.of(context);
+    _showNoteForm(context, ref, titleController, contentController, 'Create New Note', () {
+      if (titleController.text.isNotEmpty) {
+        ref.read(notesProvider.notifier).addNote(titleController.text, contentController.text);
+        Navigator.pop(context);
+      }
+    });
+  }
 
+  void _showEditNoteDialog(BuildContext context, WidgetRef ref, dynamic note) {
+    final titleController = TextEditingController(text: note.title);
+    final contentController = TextEditingController(text: note.content);
+    _showNoteForm(context, ref, titleController, contentController, 'Edit Note', () {
+      if (titleController.text.isNotEmpty) {
+        ref.read(notesProvider.notifier).updateNote(note.id, titleController.text, contentController.text);
+        Navigator.pop(context);
+      }
+    });
+  }
+
+  void _showNoteForm(BuildContext context, WidgetRef ref, TextEditingController titleController, TextEditingController contentController, String title, VoidCallback onSave) {
+    final theme = Theme.of(context);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -242,7 +274,7 @@ class NotesScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 24),
-            Text('Create New Note', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+            Text(title, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 24),
             TextField(
               controller: titleController,
@@ -268,12 +300,7 @@ class NotesScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
             FilledButton(
-              onPressed: () {
-                if (titleController.text.isNotEmpty) {
-                  ref.read(notesProvider.notifier).addNote(titleController.text, contentController.text);
-                  Navigator.pop(context);
-                }
-              },
+              onPressed: onSave,
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

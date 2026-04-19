@@ -44,6 +44,17 @@ class NotesNotifier extends StateNotifier<AsyncValue<List<NoteModel>>> {
     await loadNotes();
   }
 
+  Future<void> updateNote(String id, String title, String content) async {
+    final note = NoteModel(
+      id: id,
+      title: title,
+      content: content,
+      createdAt: DateTime.now(), // Or preserve original if needed
+    );
+    await _ref.read(noteRepositoryProvider).updateNote(note);
+    await loadNotes();
+  }
+
   Future<void> deleteNote(String id) async {
     await _ref.read(noteRepositoryProvider).deleteNote(id);
     await loadNotes();
