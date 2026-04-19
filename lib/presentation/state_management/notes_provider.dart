@@ -4,6 +4,20 @@ import '../../data/models/note_model.dart';
 import '../../data/providers/repository_providers.dart';
 import 'auth_provider.dart';
 
+final notesSearchQueryProvider = StateProvider<String>((ref) => '');
+
+final filteredNotesProvider = Provider<AsyncValue<List<NoteModel>>>((ref) {
+  final notesAsync = ref.watch(notesProvider);
+  final searchQuery = ref.watch(notesSearchQueryProvider).toLowerCase();
+
+  return notesAsync.whenData((notes) {
+    if (searchQuery.isEmpty) return notes;
+    return notes.where((note) =>
+        note.title.toLowerCase().contains(searchQuery) ||
+        note.content.toLowerCase().contains(searchQuery)).toList();
+  });
+});
+
 final notesProvider = StateNotifierProvider<NotesNotifier, AsyncValue<List<NoteModel>>>((ref) {
   return NotesNotifier(ref);
 });
@@ -45,6 +59,7 @@ class NotesNotifier extends StateNotifier<AsyncValue<List<NoteModel>>> {
       await loadNotes();
     } catch (e) {
       state = AsyncValue.error(e, StackTrace.current);
+      rethrow;
     }
   }
 }
