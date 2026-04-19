@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers/repository_providers.dart';
@@ -28,5 +29,10 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
   Future<void> signOut() async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() => _ref.read(authRepositoryProvider).signOut());
+  }
+
+  Future<void> updateProfilePicture(File image) async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() => _ref.read(authRepositoryProvider).updateProfilePicture(image));
   }
 }

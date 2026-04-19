@@ -1,11 +1,18 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../state_management/auth_provider.dart';
+import '../../data/providers/repository_providers.dart';
 import 'dashboard_screen.dart';
 import 'notes_screen.dart';
-import '../state_management/notes_provider.dart';
 
-final scaffoldKeyProvider = Provider((ref) => GlobalKey<ScaffoldState>());
+final profilePicProvider = FutureProvider<String?>((ref) async {
+  // Watch auth state to re-fetch when user changes
+  ref.watch(authStateProvider);
+  return ref.read(authRepositoryProvider).getProfilePicture();
+});
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -23,14 +30,38 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     });
   }
 
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    try {
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 25); // Lower quality for Firestore
+      
+      if (pickedFile != null) {
+        final file = File(pickedFile.path);
+        await ref.read(authControllerProvider.notifier).updateProfilePicture(file);
+        ref.invalidate(profilePicProvider);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profile picture updated successfully!'), backgroundColor: Colors.green),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final scaffoldKey = ref.watch(scaffoldKeyProvider);
     final user = ref.watch(authStateProvider).value;
+    final authState = ref.watch(authControllerProvider);
+    final profilePicAsync = ref.watch(profilePicProvider);
 
     return Scaffold(
-      key: scaffoldKey,
-      drawer: _buildDrawer(context, user),
+      drawer: _buildDrawer(context, user, authState, profilePicAsync),
       body: IndexedStack(
         index: _selectedIndex,
         children: const [
@@ -59,7 +90,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
-  Widget _buildDrawer(BuildContext context, dynamic user) {
+  Widget _buildDrawer(BuildContext context, dynamic user, AsyncValue<void> authState, AsyncValue<String?> profilePicAsync) {
     return Drawer(
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
@@ -72,9 +103,36 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           UserAccountsDrawerHeader(
             accountName: const Text('SmartHub User', style: TextStyle(fontWeight: FontWeight.bold)),
             accountEmail: Text(user?.email ?? 'Not logged in'),
-            currentAccountPicture: const CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Icon(Icons.person, size: 45, color: Colors.blue),
+            currentAccountPicture: GestureDetector(
+              onTap: authState.isLoading ? null : _pickImage,
+              child: profilePicAsync.when(
+                data: (base64String) => Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundColor: Colors.white,
+                      backgroundImage: base64String != null 
+                          ? MemoryImage(base64Decode(base64String)) 
+                          : null,
+                      child: base64String == null && !authState.isLoading
+                          ? const Icon(Icons.person, size: 45, color: Colors.blue) 
+                          : (authState.isLoading ? const CircularProgressIndicator() : null),
+                    ),
+                    if (!authState.isLoading)
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                          child: const Icon(Icons.camera_alt, size: 14, color: Colors.blue),
+                        ),
+                      ),
+                  ],
+                ),
+                loading: () => const CircleAvatar(child: CircularProgressIndicator()),
+                error: (_, __) => const CircleAvatar(child: Icon(Icons.error)),
+              ),
             ),
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -123,16 +181,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Logout Confirmation'),
-        content: const Text('Are you sure you want to sign out of SmartHub?'),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        content: const Text('Are you sure you want to sign out?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Keep Working')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
               ref.read(authControllerProvider.notifier).signOut();
               Navigator.pop(context);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
             child: const Text('Logout'),
           ),
         ],
