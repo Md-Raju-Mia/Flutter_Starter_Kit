@@ -39,9 +39,7 @@ class AuthRepositoryImpl implements AuthRepository {
     final user = _firebaseAuth.currentUser;
     if (user == null) return;
 
-    // Read and compress (by reading bytes)
     final bytes = await imageFile.readAsBytes();
-    // Check if image is too large (>1MB)
     if (bytes.lengthInBytes > 1000000) {
       throw Exception('Image too large. Please select a smaller photo.');
     }
@@ -60,5 +58,27 @@ class AuthRepositoryImpl implements AuthRepository {
 
     final doc = await _firestore.collection('users').doc(user.uid).get();
     return doc.data()?['profilePic'];
+  }
+
+  @override
+  Future<void> updateDisplayName(String name) async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) return;
+
+    await _firestore.collection('users').doc(user.uid).set({
+      'displayName': name,
+    }, SetOptions(merge: true));
+    
+    // Also update Firebase Auth display name for consistency
+    await user.updateDisplayName(name);
+  }
+
+  @override
+  Future<String?> getDisplayName() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) return null;
+
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    return doc.data()?['displayName'] ?? user.displayName;
   }
 }

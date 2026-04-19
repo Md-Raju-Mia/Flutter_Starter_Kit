@@ -35,4 +35,9 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() => _ref.read(authRepositoryProvider).updateProfilePicture(image));
   }
+
+  Future<void> updateDisplayName(String name) async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() => _ref.read(authRepositoryProvider).updateDisplayName(name));
+  }
 }

@@ -9,9 +9,13 @@ import 'dashboard_screen.dart';
 import 'notes_screen.dart';
 
 final profilePicProvider = FutureProvider<String?>((ref) async {
-  // Watch auth state to re-fetch when user changes
   ref.watch(authStateProvider);
   return ref.read(authRepositoryProvider).getProfilePicture();
+});
+
+final displayNameProvider = FutureProvider<String?>((ref) async {
+  ref.watch(authStateProvider);
+  return ref.read(authRepositoryProvider).getDisplayName();
 });
 
 class MainScreen extends ConsumerStatefulWidget {
@@ -33,7 +37,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     try {
-      final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 25); // Lower quality for Firestore
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 25);
       
       if (pickedFile != null) {
         final file = File(pickedFile.path);
@@ -54,14 +58,58 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
   }
 
+  Future<void> _editDisplayName(String? currentName) async {
+    final controller = TextEditingController(text: currentName ?? '');
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit User Name'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Display Name',
+            hintText: 'Enter your name',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty && result != currentName) {
+      try {
+        await ref.read(authControllerProvider.notifier).updateDisplayName(result);
+        ref.invalidate(displayNameProvider);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('User name updated successfully!'), backgroundColor: Colors.green),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authStateProvider).value;
     final authState = ref.watch(authControllerProvider);
     final profilePicAsync = ref.watch(profilePicProvider);
+    final displayNameAsync = ref.watch(displayNameProvider);
 
     return Scaffold(
-      drawer: _buildDrawer(context, user, authState, profilePicAsync),
+      drawer: _buildDrawer(context, user, authState, profilePicAsync, displayNameAsync),
       body: IndexedStack(
         index: _selectedIndex,
         children: const [
@@ -90,7 +138,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
-  Widget _buildDrawer(BuildContext context, dynamic user, AsyncValue<void> authState, AsyncValue<String?> profilePicAsync) {
+  Widget _buildDrawer(BuildContext context, dynamic user, AsyncValue<void> authState, AsyncValue<String?> profilePicAsync, AsyncValue<String?> displayNameAsync) {
     return Drawer(
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
@@ -101,7 +149,30 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       child: Column(
         children: [
           UserAccountsDrawerHeader(
-            accountName: const Text('SmartHub User', style: TextStyle(fontWeight: FontWeight.bold)),
+            accountName: displayNameAsync.when(
+              data: (name) {
+                final hasName = name != null && name.isNotEmpty;
+                return InkWell(
+                  onTap: () => _editDisplayName(name),
+                  child: Row(
+                    children: [
+                      Text(
+                        hasName ? name : 'Edit User Name',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontStyle: hasName ? FontStyle.normal : FontStyle.italic,
+                          color: hasName ? Colors.white : Colors.white70,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.edit, size: 14, color: Colors.white70),
+                    ],
+                  ),
+                );
+              },
+              loading: () => const Text('Loading...'),
+              error: (_, __) => const Text('SmartHub User'),
+            ),
             accountEmail: Text(user?.email ?? 'Not logged in'),
             currentAccountPicture: GestureDetector(
               onTap: authState.isLoading ? null : _pickImage,

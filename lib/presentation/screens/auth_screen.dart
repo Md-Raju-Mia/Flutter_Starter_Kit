@@ -23,16 +23,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
     if (_isLogin) {
-      ref.read(authControllerProvider.notifier).signIn(email, password);
+      await ref.read(authControllerProvider.notifier).signIn(email, password);
     } else {
-      ref.read(authControllerProvider.notifier).signUp(email, password);
+      await ref.read(authControllerProvider.notifier).signUp(email, password);
     }
   }
 
@@ -87,7 +87,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           ),
                     ),
                     const SizedBox(height: 48),
-                    
+
                     // Email Field
                     TextFormField(
                       controller: _emailController,

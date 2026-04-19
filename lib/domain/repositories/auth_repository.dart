@@ -8,4 +8,6 @@ abstract class AuthRepository {
   Future<void> signOut();
   Future<void> updateProfilePicture(File imageFile);
   Future<String?> getProfilePicture();
+  Future<void> updateDisplayName(String name);
+  Future<String?> getDisplayName();
 }
