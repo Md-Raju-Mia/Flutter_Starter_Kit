@@ -295,7 +295,24 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(20),
-                      onTap: () {},
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                            title: Text(post.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            content: SingleChildScrollView(
+                              child: Text(post.body),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Close'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Row(
